@@ -202,7 +202,7 @@ def display_best_candidate(target_job_id: str):
 def main_menu():
     while True:
         print("\n=== TALENT ENGINE INTERACTIVE DEMO ===")
-        print("1. The 'Paper Tiger' Edge Case (Perfect on paper, NLP downgrades behavior)")
+        print("1. The 'Brilliant Jerk' Edge Case (Perfect on paper, NLP downgrades behavior)")
         print("2. The 'Hidden Talent' Edge Case (Employee E-002 -> Leadership Role)")
         print("3. The 'Missing Cert' Edge Case (Employee E-003 -> Senior Project Manager)")
         print("4. The 'Skill Masker' Edge Case (Overqualification vs Capping)")
@@ -215,7 +215,7 @@ def main_menu():
         choice = input("\nSelect a scenario to demonstrate (1-9): ")
         
         if choice == '1':
-            display_evaluation("E-001", "J-003", "The Paper Tiger (Perfect on paper, NLP downgrades behavior)")
+            display_evaluation("E-001", "J-003", "The Brilliant Jerk (Perfect on paper, NLP downgrades behavior)")
         elif choice == '2':
             display_evaluation("E-002", "J-003", "The Hidden Talent (Low formal scores, high informal leadership)")
         elif choice == '3':
