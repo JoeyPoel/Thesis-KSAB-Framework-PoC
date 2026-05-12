@@ -1,6 +1,7 @@
 image: python:3.10
 
 stages:
+  - lint
   - test
 
 variables:
@@ -17,12 +18,20 @@ before_script:
   - virtualenv venv
   - source venv/bin/activate
   - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-  - pip install pytest
+  - pip install pytest flake8
 
 test-job:
   stage: test
   script:
     - echo "Running tests..."
     - pytest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+code-quality-job:
+  stage: lint
+  script:
+    - echo "Running code quality checks..."
+    - flake8 .
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
