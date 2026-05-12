@@ -59,11 +59,12 @@ def get_recommendations(employee_id: str, target_job_id: Optional[str] = None):
     Runs the holistic matching algorithm. If no target_job_id is provided,
     it finds the best match based on overall proficiency coverage.
     """
-    cleaned_profiles = run_etl_pipeline(EMPLOYEE_PROFILES)
-    employee = next((p for p in cleaned_profiles if p["employee_id"] == employee_id), None)
-    
-    if not employee:
+    raw_employee = next((p for p in EMPLOYEE_PROFILES if p["employee_id"] == employee_id), None)
+    if not raw_employee:
         raise HTTPException(status_code=404, detail="Employee not found")
+        
+    cleaned_profiles = run_etl_pipeline([raw_employee])
+    employee = cleaned_profiles[0]
         
     target_job = None
     if target_job_id:
