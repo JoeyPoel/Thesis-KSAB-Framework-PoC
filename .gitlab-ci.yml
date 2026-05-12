@@ -1,0 +1,28 @@
+image: python:3.10
+
+stages:
+  - test
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+before_script:
+  - python --version
+  - pip install virtualenv
+  - virtualenv venv
+  - source venv/bin/activate
+  - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+  - pip install pytest
+
+test-job:
+  stage: test
+  script:
+    - echo "Running tests..."
+    - pytest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
