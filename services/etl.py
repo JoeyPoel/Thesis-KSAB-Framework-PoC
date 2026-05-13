@@ -3,8 +3,12 @@ Service Layer for the ETL (Extract, Transform, Load) Pipeline.
 Encapsulates logic for parsing unstructured notes into structured KSAB scores.
 """
 import re
+from loguru import logger
 from models.domain import EmployeeInternal
 from mock_data import KSAB_ENTITY_MAP
+
+# Configure logger for the NLP engine
+logger.add("logs/nlp_engine.log", rotation="500 MB", level="INFO")
 
 class ETLSanitizerService:
     @staticmethod
@@ -61,13 +65,15 @@ class ETLSanitizerService:
             # Granular Grading Logic:
             if is_negated:
                 # Critical Downgrade: Evidence of missing or negative competency
+                logger.warning(f"NEGATION DETECTED: Downgrading {ksab_id} ('{key}') to Level 1 based on context in sentence: '{span.sent.text.strip()}'")
                 updated_scores[ksab_id] = 1 
             elif is_intensified:
                 # Expert Boost: Evidence of high proficiency (cap at Level 5)
+                logger.info(f"INTENSIFIER DETECTED: Boosting {ksab_id} ('{key}') to Level 5 based on context.")
                 updated_scores[ksab_id] = 5
             else:
                 # Standard Upgrade: Mentions the skill in a neutral/positive context
-                # We take the base proficiency from the Knowledge Map
+                logger.info(f"NEUTRAL MENTION: Assigning base proficiency {ksab_info['proficiency']} to {ksab_id} ('{key}').")
                 updated_scores[ksab_id] = ksab_info["proficiency"]
                 
         return updated_scores

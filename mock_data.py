@@ -40,6 +40,16 @@ RAW_JSON = """
         "B-002": 5,
         "B-003": 5
       }
+    },
+    {
+      "job_id": "J-004",
+      "title": "Global Event Coordinator",
+      "department": "External Affairs",
+      "required_ksabs": {
+        "S-004": 5,
+        "B-002": 4,
+        "B-003": 4
+      }
     }
   ],
   "course_catalogue": [
@@ -72,6 +82,48 @@ RAW_JSON = """
       "title": "Psychological Safety Leadership",
       "type": "Shadowing",
       "target_ksab_ids": ["B-001"]
+    },
+    {
+      "course_id": "C-006",
+      "title": "Industrial Metallurgy 101",
+      "type": "E-Learning",
+      "target_ksab_ids": ["K-003"]
+    },
+    {
+      "course_id": "C-007",
+      "title": "Corporate Financial Modeling",
+      "type": "E-Learning",
+      "target_ksab_ids": ["S-002"]
+    },
+    {
+      "course_id": "C-008",
+      "title": "SAP Admin Masterclass",
+      "type": "Classroom",
+      "target_ksab_ids": ["S-003"]
+    },
+    {
+      "course_id": "C-009",
+      "title": "Event Logistics & Planning",
+      "type": "Shadowing",
+      "target_ksab_ids": ["S-004"]
+    },
+    {
+      "course_id": "C-010",
+      "title": "Complex Systems Problem Solving",
+      "type": "E-Learning",
+      "target_ksab_ids": ["A-001"]
+    },
+    {
+      "course_id": "C-011",
+      "title": "Crisis Management Leadership",
+      "type": "Simulated Exercise",
+      "target_ksab_ids": ["A-003"]
+    },
+    {
+      "course_id": "C-012",
+      "title": "Ethics & Corporate Transparency",
+      "type": "Classroom",
+      "target_ksab_ids": ["B-003"]
     }
   ],
   "employees": [

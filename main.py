@@ -3,19 +3,50 @@ Intelligent Talent Engine - API Router
 This file acts purely as an HTTP controller, delegating business logic to the Service Layer.
 It also enforces Role-Based Access Control (RBAC).
 """
-from fastapi import FastAPI, HTTPException, Body, Header, Depends
+from fastapi import FastAPI, HTTPException, Body, Header, Depends, Request
+from fastapi.responses import JSONResponse
 from typing import List, Optional
+from loguru import logger
 
 from models.domain import EmployeeInternal, SkillUpdateRequest, CareerRecommendationResponse, Job, Course, KSAB
 from services.etl import ETLSanitizerService
 from services.matching import MatchingEngineService
 from mock_data import EMPLOYEE_PROFILES, JOB_CATALOGUE, COURSE_CATALOGUE, KSAB_CATALOGUE
 
+# Configure central API logger
+logger.add("logs/api_access.log", rotation="100 MB", level="INFO")
+
+class NLPProcessingError(Exception):
+    """Custom exception for NLP extraction failures."""
+    def __init__(self, message: str):
+        self.message = message
+
 app = FastAPI(
     title="Intelligent Services: Holistic Talent Engine API",
     description="Microservice to ingest holistic HR data and match profiles using KSAB proficiencies.",
     version="2.0.0"
 )
+
+# -----------------------------------------
+# Exception Handlers
+# -----------------------------------------
+@app.exception_handler(NLPProcessingError)
+async def nlp_exception_handler(request: Request, exc: NLPProcessingError):
+    logger.error(f"NLP Engine Failure: {exc.message} | Path: {request.url.path}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "The NLP engine failed to process the request context.", "reason": exc.message},
+    )
+
+# -----------------------------------------
+# Logging Middleware
+# -----------------------------------------
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Incoming Request: {request.method} {request.url.path}")
+    response = await call_next(request)
+    logger.info(f"Response Sent: {response.status_code}")
+    return response
 
 DB_EMPLOYEES, DB_JOBS, DB_COURSES, DB_KSABS = [], [], [], []
 
@@ -26,8 +57,9 @@ def bootstrap_db():
         DB_JOBS = [Job(**j) for j in JOB_CATALOGUE]
         DB_COURSES = [Course(**c) for c in COURSE_CATALOGUE]
         DB_KSABS = [KSAB(**k) for k in KSAB_CATALOGUE]
+        logger.info(f"Mock database bootstrapped with {len(DB_EMPLOYEES)} employees.")
     except Exception as e:
-        print(f"Failed to bootstrap mock database: {e}")
+        logger.critical(f"Failed to bootstrap mock database: {e}")
         DB_EMPLOYEES, DB_JOBS, DB_COURSES, DB_KSABS = [], [], [], []
 
 bootstrap_db()
@@ -38,6 +70,7 @@ bootstrap_db()
 def require_role(allowed_roles: List[str]):
     def role_checker(x_user_role: str = Header(default="employee", description="Role of the user (employee, manager, recruiter)")):
         if x_user_role not in allowed_roles:
+            logger.warning(f"Unauthorized Access Attempt: Role '{x_user_role}' tried to access restricted endpoint.")
             raise HTTPException(status_code=403, detail="Insufficient permissions. Requires one of: " + ", ".join(allowed_roles))
         return x_user_role
     return role_checker
@@ -51,7 +84,7 @@ def sanitize_data(
     try:
         return [ETLSanitizerService.process_employee(p) for p in profiles]
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"ETL pipeline failed: {str(e)}")
+        raise NLPProcessingError(str(e))
 
 @app.post("/api/skills/update", tags=["Skills"])
 def update_skills(
