@@ -64,6 +64,15 @@ The engine is specifically tuned to handle "Complex" HR scenarios that fail in b
     ```
     *   Docs: `http://localhost:8000/docs`
 
+### Cloud-Ready Deployment (Docker)
+This microservice is containerized for consistent deployment:
+1.  **Build and Run**:
+    ```bash
+    docker-compose up --build
+    ```
+2.  **Access Logs**: Internal engine logs are persisted to the `./logs` directory on your host machine.
+
+
 ---
 
 ## 🛠️ Technology Stack
