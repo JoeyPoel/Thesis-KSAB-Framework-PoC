@@ -29,15 +29,25 @@ def display_evaluation(employee_id: str, target_job_id: str, title: str):
     
     type_text("1. Running ETL Pipeline to sanitize data and extract hidden skills...")
     cleaned_profiles = get_cleaned_employees()
-    employee = next((p for p in cleaned_profiles if p.employee_id == employee_id), None)
-    target_job = next((j for j in DB_JOBS if j.job_id == target_job_id), None)
+    
+    # Case-insensitive lookup
+    employee = next((p for p in cleaned_profiles if p.employee_id.upper() == employee_id.upper()), None)
+    target_job = next((j for j in DB_JOBS if j.job_id.upper() == target_job_id.upper()), None)
+    
+    if not employee:
+        print(f"\n[ERROR]: Employee ID '{employee_id}' not found.")
+        return
+    if not target_job:
+        print(f"\n[ERROR]: Job ID '{target_job_id}' not found.")
+        return
     
     time.sleep(0.5)
-    print(f"   [Employee Loaded]: {employee_id}")
-    print(f"   [Target Job Loaded]: {target_job.title} ({target_job_id})")
+    print(f"   [Employee Loaded]: {employee.employee_id}")
+    print(f"   [Target Job Loaded]: {target_job.title} ({target_job.job_id})")
     print(f"   [Unstructured Notes Parsed]: '{employee.manager_unstructured_notes}'\n")
     
     type_text("2. Employee's Formal KSAB Scores (Before NLP):")
+
     formal_scores = employee.formal_ksab_scores
     for ksab, score in formal_scores.items():
         label = get_ksab_label(ksab)
@@ -95,10 +105,10 @@ def display_best_match(employee_id: str):
     
     type_text("1. Running ETL Pipeline to sanitize data and extract hidden skills...")
     cleaned_profiles = get_cleaned_employees()
-    employee = next((p for p in cleaned_profiles if p.employee_id == employee_id), None)
+    employee = next((p for p in cleaned_profiles if p.employee_id.upper() == employee_id.upper()), None)
     
     if not employee:
-        print("Employee not found.")
+        print(f"\n[ERROR]: Employee ID '{employee_id}' not found.")
         return
         
     time.sleep(0.5)
@@ -149,9 +159,9 @@ def display_best_candidate(target_job_id: str):
     type_text(f"--- DEMO: The Candidate Finder ---")
     print_separator()
     
-    target_job = next((j for j in DB_JOBS if j.job_id == target_job_id), None)
+    target_job = next((j for j in DB_JOBS if j.job_id.upper() == target_job_id.upper()), None)
     if not target_job:
-        print("Job not found.")
+        print(f"\n[ERROR]: Job ID '{target_job_id}' not found.")
         return
         
     time.sleep(0.5)
@@ -199,46 +209,92 @@ def display_best_candidate(target_job_id: str):
         
     print_separator()
 
+def display_interactive_mode():
+    print_separator()
+    type_text("--- INTERACTIVE TALENT EXPLORER ---")
+    print_separator()
+    
+    while True:
+        print("\nChoose an action:")
+        print("A. Pick Employee + Job (Gap Analysis & Courses)")
+        print("B. Pick Job (Find Best Candidate)")
+        print("C. Pick Employee (Find Best Next Role)")
+        print("D. Return to Main Menu")
+        
+        sub_choice = input("\nSelect action (A-D): ").upper()
+        
+        if sub_choice == 'A':
+            print("\nAvailable Employees:")
+            for emp in DB_EMPLOYEES:
+                print(f" - {emp.employee_id} ({emp.name if emp.name else 'Private Profile'})")
+            
+            emp_id = input("\nEnter Employee ID: ").strip()
+            
+            print("\nAvailable Jobs:")
+            for job in DB_JOBS:
+                print(f" - {job.job_id} ({job.title})")
+            
+            job_id = input("\nEnter Job ID: ").strip()
+            
+            display_evaluation(emp_id, job_id, f"Manual Evaluation: {emp_id} -> {job_id}")
+            
+        elif sub_choice == 'B':
+            print("\nAvailable Jobs:")
+            for job in DB_JOBS:
+                print(f" - {job.job_id} ({job.title})")
+            
+            job_id = input("\nEnter Job ID to find candidates for: ").strip()
+            display_best_candidate(job_id)
+            
+        elif sub_choice == 'C':
+            print("\nAvailable Employees:")
+            for emp in DB_EMPLOYEES:
+                print(f" - {emp.employee_id}")
+            
+            emp_id = input("\nEnter Employee ID to find best role for: ").strip()
+            display_best_match(emp_id)
+            
+        elif sub_choice == 'D':
+            break
+        else:
+            print("Invalid selection.")
+
 def main_menu():
     while True:
         print("\n=== TALENT ENGINE INTERACTIVE DEMO ===")
-        print("1. The 'Brilliant Jerk' Edge Case (Perfect on paper, NLP downgrades behavior)")
-        print("2. The 'Hidden Talent' Edge Case (Employee E-002 -> Leadership Role)")
-        print("3. The 'Missing Cert' Edge Case (Employee E-003 -> Senior Project Manager)")
-        print("4. The 'Skill Masker' Edge Case (Overqualification vs Capping)")
-        print("5. The 'Blank Slate' Edge Case (No formal scores, NLP baseline detection)")
-        print("6. The 'Career Pathfinder' (Engine automatically finds the best role)")
-        print("7. The 'Candidate Finder' (Engine automatically finds the best employee for a job)")
-        print("8. View All Employees after ETL (Sanitization & Extraction)")
-        print("9. Exit")
+        print("1. Interactive Talent Explorer (Manual Mode: Pick Employee/Job)")
+        print("2. The 'Brilliant Jerk' Scenario (NLP Negation Detection)")
+        print("3. The 'Hidden Talent' Scenario (NLP Talent Extraction)")
+        print("4. The 'Missing Cert' Scenario (Gap Analysis & Training)")
+        print("5. The 'Skill Masker' Scenario (Overqualification Capping)")
+        print("6. The 'Blank Slate' Scenario (No formal data, NLP baseline)")
+        print("7. View All Employees (Post-ETL Data Audit)")
+        print("8. Exit")
         
-        choice = input("\nSelect a scenario to demonstrate (1-9): ")
+        choice = input("\nSelect an option (1-8): ")
         
         if choice == '1':
-            display_evaluation("E-001", "J-003", "The Brilliant Jerk (Perfect on paper, NLP downgrades behavior)")
+            display_interactive_mode()
         elif choice == '2':
-            display_evaluation("E-002", "J-003", "The Hidden Talent (Low formal scores, high informal leadership)")
+            display_evaluation("E-001", "J-003", "The Brilliant Jerk (Perfect on paper, NLP downgrades behavior)")
         elif choice == '3':
-            display_evaluation("E-003", "J-002", "The Missing Certification (Ready for promotion, needs 1 course)")
+            display_evaluation("E-002", "J-003", "The Hidden Talent (Low formal scores, high informal leadership)")
         elif choice == '4':
-            display_evaluation("E-004", "J-002", "The Skill Masker (Proves math engine caps overqualification)")
+            display_evaluation("E-003", "J-002", "The Missing Certification (Ready for promotion, needs 1 course)")
         elif choice == '5':
-            display_evaluation("E-005", "J-001", "The Blank Slate (No formal scores, NLP detects baseline)")
+            display_evaluation("E-004", "J-002", "The Skill Masker (Proves math engine caps overqualification)")
         elif choice == '6':
-            display_best_match("E-002") 
+            display_evaluation("E-005", "J-001", "The Blank Slate (No formal scores, NLP detects baseline)")
         elif choice == '7':
-            display_best_candidate("J-002") 
-        elif choice == '8':
             print_separator()
             type_text("--- RUNNING ETL PIPELINE ON ALL DATA ---")
             cleaned_profiles = get_cleaned_employees()
             for emp in cleaned_profiles:
                 print(f"\nEmployee: {emp.employee_id}")
-                print(f"Current Role: {emp.current_role_id}")
                 print(f"Formal Scores: {emp.formal_ksab_scores}")
                 print(f"Enhanced Scores (After NLP): {emp.enhanced_ksab_scores}")
             print_separator()
-        elif choice == '9':
+        elif choice == '8':
             print("Exiting demo. Goodbye!")
             break
         else:
@@ -249,3 +305,6 @@ if __name__ == "__main__":
         main_menu()
     except KeyboardInterrupt:
         print("\nExiting demo.")
+    except Exception as e:
+        print(f"\nError in Demo Loop: {e}")
+
