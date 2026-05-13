@@ -139,14 +139,16 @@ JOB_CATALOGUE: List[Dict[str, Any]] = _data["job_catalogue"]
 COURSE_CATALOGUE: List[Dict[str, Any]] = _data["course_catalogue"]
 EMPLOYEE_PROFILES: List[Dict[str, Any]] = _data["employees"]
 
-# Updated NLP Mock mapping for extracting hidden KSABs and default proficiency
+# NLP Mock mapping for extracting hidden KSABs and default proficiency
 KSAB_KEYWORD_MAP: Dict[str, Dict[str, Any]] = {
     "organize large community events": {"ksab_id": "B-003", "proficiency": 5},
     "natural leadership": {"ksab_id": "B-001", "proficiency": 5},
+    "leadership": {"ksab_id": "B-001", "proficiency": 5},
     "hostile environment": {"ksab_id": "B-001", "proficiency": 1},
+    "teamwork": {"ksab_id": "B-002", "proficiency": 5},
     "python": {"ksab_id": "S-001", "proficiency": 3}
 }
-
+KSAB_ENTITY_MAP: Dict[str, Dict[str, Any]] = KSAB_KEYWORD_MAP
 # Structured Domain Catalogue for KSABs
 KSAB_CATALOGUE: List[Dict[str, str]] = [
     {"ksab_id": "K-001", "name": "Data Science Fundamentals", "category": "Knowledge"},

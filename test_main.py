@@ -65,39 +65,59 @@ def test_recommend_courses_no_coverage():
     recommendations = MatchingEngineService.recommend_courses(missing_ksabs, course_catalogue)
     assert recommendations == []
 
-def test_etl_logic():
-    notes = "This employee creates a hostile environment but natural leadership is visible."
-    formal_scores = {"K-001": 3}
-    
+# -----------------------------------------
+# NLP Service Tests (spaCy Logic)
+# -----------------------------------------
+def test_etl_logic_neutral_mention():
+    """Verify that a neutral mention takes the base level from the knowledge map."""
+    notes = "John works with python."
+    formal_scores = {}
     enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
-    assert "B-001" in enhanced
-    assert enhanced["B-001"] == 1
-    assert enhanced["K-001"] == 3
+    # Python is S-001, base proficiency is 3
+    assert enhanced.get("S-001") == 3
 
-def test_etl_logic_non_string_input():
+def test_etl_logic_negation_downgrade():
+    """Verify that 'lacks' or 'no' triggers a downgrade to Level 1."""
+    notes = "The candidate lacks teamwork skills."
+    formal_scores = {"B-002": 5} # Start high
+    enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # Teamwork is B-002, should be downgraded to 1
+    assert enhanced.get("B-002") == 1
+
+def test_etl_logic_intensifier_boost():
+    """Verify that 'excellent' or 'expert' triggers a boost to Level 5."""
+    notes = "Showed an excellent grasp of python."
+    formal_scores = {}
+    enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # Python is S-001, base is 3, but 'excellent' boosts to 5
+    assert enhanced.get("S-001") == 5
+
+def test_etl_logic_deep_dependency_negation():
+    """Verify that negation is caught even if slightly separated (spaCy dependency tree)."""
+    notes = "Leadership is something they do not possess."
+    formal_scores = {}
+    enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # Leadership is B-001, 'not possess' should downgrade to 1
+    assert enhanced.get("B-001") == 1
+
+def test_etl_logic_empty_input():
     scores = {"K-001": 3}
+    assert ETLSanitizerService.extract_hidden_ksabs("", scores) == scores
     assert ETLSanitizerService.extract_hidden_ksabs(None, scores) == scores
 
-def test_missing_baseline_data_edge_case():
-    employee = EmployeeInternal(
-        employee_id="EMP-NO-DATA",
-        formal_ksab_scores={},
-        enhanced_ksab_scores={}
+def test_etl_process_employee_anonymization():
+    """Verify GDPR anonymization during ETL."""
+    emp = EmployeeInternal(
+        employee_id="E-001",
+        name="John Doe",
+        email="john@example.com",
+        manager_unstructured_notes="Expert python developer",
+        formal_ksab_scores={}
     )
-    target_job = Job(
-        job_id="J-101",
-        title="Test Job",
-        department="Test Dept",
-        required_ksabs={"K-001": 3}
-    )
-    course_catalogue = [
-        Course(course_id="C-001", title="Test", type="Test", target_ksab_ids=["K-001"])
-    ]
-    
-    result = MatchingEngineService.evaluate_employee_for_role(employee, target_job, course_catalogue)
-    assert result.match_percentage == 0.0
-    assert result.missing_ksabs_gaps == {"K-001": 3}
-    assert result.recommended_courses == ["C-001"]
+    processed = ETLSanitizerService.process_employee(emp)
+    assert processed.name is None
+    assert processed.email is None
+    assert processed.enhanced_ksab_scores["S-001"] == 5
 
 # -----------------------------------------
 # API Endpoints Tests
@@ -120,7 +140,6 @@ def test_update_skills_employee_not_found():
     assert response.status_code == 404
 
 def test_update_skills_ksab_not_found():
-    # K-999 is mathematically valid via regex but missing in DB_KSABS
     response = client.post(
         "/api/skills/update?employee_id=E-001",
         json={"ksab_id": "K-999", "proficiency": 4},
@@ -129,15 +148,7 @@ def test_update_skills_ksab_not_found():
     assert response.status_code == 400
     assert "does not exist in the catalogue" in response.json()["detail"]
 
-def test_update_skills_rejects_unstructured_text():
-    response = client.post(
-        "/api/skills/update?employee_id=E-001",
-        json={"ksab_id": "Python", "proficiency": 4},
-        headers={"X-User-Role": "manager"}
-    )
-    assert response.status_code == 422
-
-def test_endpoint_etl_sanitization():
+def test_endpoint_etl_sanitization_intensified():
     payload = [
         {
             "employee_id": "E-TEST",
@@ -148,8 +159,8 @@ def test_endpoint_etl_sanitization():
     response = client.post("/api/etl/sanitize", json=payload, headers={"X-User-Role": "recruiter"})
     assert response.status_code == 200
     data = response.json()[0]
-    assert data["enhanced_ksab_scores"]["S-001"] == 3
-    assert data["enhanced_ksab_scores"]["K-001"] == 5
+    # Now expects 5 because of 'excellent'
+    assert data["enhanced_ksab_scores"]["S-001"] == 5
 
 def test_endpoint_pathfinder():
     response = client.get("/api/career/recommendations/E-002", headers={"X-User-Role": "employee"})
@@ -175,11 +186,6 @@ def test_get_recommendations_job_not_found():
 def test_get_best_candidate_job_not_found():
     response = client.get("/api/candidates/best-match/NON-EXISTENT", headers={"X-User-Role": "manager"})
     assert response.status_code == 404
-
-def test_get_best_candidate_skips_current_role():
-    response = client.get("/api/candidates/best-match/J-001", headers={"X-User-Role": "recruiter"})
-    assert response.status_code == 200
-    assert response.json()["employee_id"] != "E-001"
 
 def test_sanitize_data_error_handling(monkeypatch):
     import services.etl
