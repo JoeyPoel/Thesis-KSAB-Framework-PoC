@@ -19,28 +19,32 @@ Unlike traditional systems that only measure binary technical skills (Has Python
 
 The PoC is broken down into modular components that handle the entire lifecycle from messy legacy HR data to automated career recommendations.
 
-### 1. The Data Layer (`mock_data.py`)
+### 1. Object-Oriented Domain Models (`models/domain.py`)
+Replaces raw dictionary lookups with strict `Pydantic` models to enforce type safety and object-oriented validation.
+*   **Strict Validation**: Uses Regex (e.g., `^[KSAB]-\d{3}$`) to prevent invalid skills from entering the system.
+*   **GDPR-Compliant Responses**: Uses the `CareerRecommendationResponse` model to explicitly exclude `manager_unstructured_notes` from public APIs, protecting sensitive Personally Identifiable Information (PII) from leaking.
+
+### 2. The Data Layer (`mock_data.py`)
 Provides the simulated database representing a corporate environment. It features:
-*   A **Job Catalogue** detailing specific roles and their holistic KSAB requirements (e.g., Leadership heavily weighting Behaviours).
-*   A **Course Catalogue** that maps learning interventions to specific KSAB IDs.
-*   **Employee Profiles** containing both formal structured scores and unstructured manager notes. This dataset intentionally includes edge cases like the "Brilliant Jerk" (perfect technicals, terrible behaviors) and the "Hidden Gem" (low formal scores, but high informal leadership traits).
+*   A **Job Catalogue** detailing specific roles and their holistic KSAB requirements.
+*   A **Course Catalogue** mapping learning interventions to KSAB IDs.
+*   **Employee Profiles** containing formal scores and unstructured manager notes.
 
-### 2. ETL & Sanitization Pipeline (`etl.py`)
-Real HR data is rarely clean. The ETL script simulates an ingestion pipeline that reads raw employee profiles and applies simulated NLP (Natural Language Processing).
-*   **Hidden Skill Extraction**: It scans unstructured `manager_unstructured_notes` for keywords. When a manager mentions that an employee "organizes large community events," the pipeline parses this text and dynamically injects the hidden behaviour score (`S-004: Level 4`) into the employee's profile.
-*   **Data Preservation**: It creates an `enhanced_ksab_scores` dictionary without destroying the original legacy notes, adhering to data warehousing best practices.
+### 3. Service Layer: ETL & Sanitization (`services/etl.py`)
+Real HR data is rarely clean. This service simulates an ingestion pipeline that reads raw profiles and applies simulated NLP.
+*   **Hidden Skill Extraction**: It scans unstructured `manager_unstructured_notes` for keywords and dynamically injects hidden behaviour scores into the employee's profile.
+*   **Data Preservation**: It creates an `enhanced_ksab_scores` dictionary without destroying the original legacy notes, adhering to strict data warehousing best practices.
 
-### 3. The Math Engine (`algorithm.py`)
+### 4. Service Layer: The Math Engine (`services/matching.py`)
 This is the deterministic core of the engine. It abandons simple binary matching for a weighted scalar calculation.
-*   **Match Calculation**: It calculates overlap based on required vs. actual proficiency.
-*   **Overqualification Capping**: Earned points are capped at the required level. This mathematically prevents an employee with a Level 5 in Python from masking a Level 1 in Teamwork. A "Brilliant Jerk" will never achieve a 100% match for a leadership role.
-*   **Targeted Gap Analysis**: It identifies the exact point deficit for every missing KSAB and queries the `Course Catalogue` to recommend the minimum set of training required to close the specific holistic gap.
+*   **Match Calculation & Overqualification Capping**: Calculates overlap based on required vs. actual proficiency. Earned points are capped at the required level, mathematically preventing an employee with a Level 5 in Python from masking a Level 1 in Teamwork.
+*   **Targeted Gap Analysis (O(K x C) Greedy Algorithm)**: Identifies the exact point deficit for every missing KSAB and queries the `Course Catalogue` to recommend the minimum set of training required to close the specific holistic gap.
 
-### 4. API Middleware (`main.py`)
-The system is wrapped in a modern FastAPI application, providing standard RESTful endpoints.
+### 5. API Router (`main.py`)
+The system is wrapped in a modern FastAPI application, acting purely as an HTTP controller that delegates business logic to the Service Layer.
 *   `POST /api/etl/sanitize`: Ingests and enhances legacy data.
-*   `POST /api/skills/update`: Allows structured updates, using Pydantic regex validation to reject unstructured text (enforcing the strict `[KSAB]-\d{3}` schema).
-*   `GET /api/career/recommendations/{employee_id}`: The primary endpoint that runs the math engine to find the employee's best internal mobility match and outputs the required training interventions.
+*   `POST /api/skills/update`: Allows structured updates, using Pydantic validation.
+*   `GET /api/career/recommendations/{employee_id}`: The primary endpoint running the math engine with strict FastAPI `response_model` enforcement to prevent data leakage.
 
 ### 5. Automated Testing (`test_main.py`)
 A Pytest suite that proves the math works. It mathematically verifies the proficiency calculations, gap detection, and tests the edge-case inputs to ensure API reliability.

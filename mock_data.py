@@ -147,19 +147,19 @@ KSAB_KEYWORD_MAP: Dict[str, Dict[str, Any]] = {
     "python": {"ksab_id": "S-001", "proficiency": 3}
 }
 
-# Human-readable labels for the demo
-KSAB_LABELS: Dict[str, str] = {
-    "K-001": "Data Science Fundamentals",
-    "K-002": "Prince2 Agile",
-    "K-003": "Basic Metallurgy",
-    "S-001": "Advanced Python",
-    "S-002": "Financial Forecasting",
-    "S-003": "SAP SuccessFactors Administration",
-    "S-004": "Event Organization",
-    "A-001": "Complex Problem Solving",
-    "A-002": "Strategic Systems Thinking",
-    "A-003": "High-stress decision making",
-    "B-001": "Psychological Safety Facilitation",
-    "B-002": "Cross-departmental empathy",
-    "B-003": "Ethical transparency"
-}
+# Structured Domain Catalogue for KSABs
+KSAB_CATALOGUE: List[Dict[str, str]] = [
+    {"ksab_id": "K-001", "name": "Data Science Fundamentals", "category": "Knowledge"},
+    {"ksab_id": "K-002", "name": "Prince2 Agile", "category": "Knowledge"},
+    {"ksab_id": "K-003", "name": "Basic Metallurgy", "category": "Knowledge"},
+    {"ksab_id": "S-001", "name": "Advanced Python", "category": "Skill"},
+    {"ksab_id": "S-002", "name": "Financial Forecasting", "category": "Skill"},
+    {"ksab_id": "S-003", "name": "SAP SuccessFactors Administration", "category": "Skill"},
+    {"ksab_id": "S-004", "name": "Event Organization", "category": "Skill"},
+    {"ksab_id": "A-001", "name": "Complex Problem Solving", "category": "Ability"},
+    {"ksab_id": "A-002", "name": "Strategic Systems Thinking", "category": "Ability"},
+    {"ksab_id": "A-003", "name": "High-stress decision making", "category": "Ability"},
+    {"ksab_id": "B-001", "name": "Psychological Safety Facilitation", "category": "Behaviour"},
+    {"ksab_id": "B-002", "name": "Cross-departmental empathy", "category": "Behaviour"},
+    {"ksab_id": "B-003", "name": "Ethical transparency", "category": "Behaviour"}
+]
