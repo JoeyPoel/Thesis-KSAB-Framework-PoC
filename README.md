@@ -18,15 +18,33 @@ Traditional HR systems often focus on "Paper Qualifications" (Certificates/Knowl
 
 ---
 
-## 🧠 The NLP Layer (spaCy)
+## 🧠 The NLP Layer & Secure Sanitization
 
-The engine uses **spaCy** (Industry-standard NLP) to process manager feedback. Unlike simple keyword search, this system performs deep **Linguistic Dependency Analysis**.
+The engine uses **spaCy** (Industry-standard NLP) to process manager feedback, enabling deep **Linguistic Dependency Analysis** and syntactic evaluation.
 
-### How & Why spaCy is Used:
-1.  **Semantic Quantification**: It translates human sentiment into the numerical 1-5 proficiency scores required for matching.
-2.  **Negation Detection**: Uses spaCy's **Dependency Parser** to find negations (e.g., *"lacks leadership"*). If detected, the competency is downgraded to **Level 1** regardless of what the knowledge map says.
-3.  **Intensifier Boosting**: Detects positive qualifiers (e.g., *"expert"*, *"excellent"*). This allows the system to recognize "Expert" level performance mentioned in notes, boosting scores to **Level 5**.
-4.  **Custom Phrase Matching**: Uses a `PhraseMatcher` to identify HR domain terms as first-class linguistic entities.
+### How & Why spaCy & NLP are Used:
+1.  **Semantic Quantification**: Translates unstructured qualitative human feedback into the numerical 1-5 proficiency levels required for matching.
+2.  **Proximity Negation Detection**: Uses spaCy's **Dependency Parser** and a tokens-proximity window (8 tokens) to find negations (e.g., *"lacks leadership"*). If detected, the competency is downgraded to **Level 1** (Baseline).
+3.  **Intensifier Boosting**: Detects positive qualifiers (e.g., *"expert"*, *"excellent"*, *"master"*). Recognizes "Expert" level performance in notes and boosts scores to **Level 5** (Expert).
+4.  **Custom Phrase Matching**: Leverages a `PhraseMatcher` to identify HR competencies and KSAB categories as first-class entities.
+
+### 🛡️ Multi-Layered Validation & Human-in-the-Loop (HITL)
+To prevent "false security" and linguistic blindspots (like run-on text breaking dependency parsers), the ETL pipeline implements a highly robust, additive penalty scoring system. 
+
+Each extracted competency starts with a baseline `validation_score` of `1.0`. Penalties are applied additively:
+*   **Conflicting Signals (`-0.5`)**: Applied if a competency is simultaneously negated and intensified (e.g., *"shows no expert grasp"*).
+*   **Ambiguous Language / Hedging (`-0.3`)**: Applied if the context contains hedging markers (e.g., *"maybe"*, *"possibly"*, *"somewhat"*, *"partially"*, *"unclear"*).
+*   **Structural Complexity (Sentence Length)**:
+    *   **`-0.15`** for moderately long sentences (>20 words) which make syntactic trees harder to parse.
+    *   **`-0.30`** for rambling, run-on sentences (>40 words) that pose a high risk of parsing failures.
+
+> [!IMPORTANT]
+> If the final `validation_score` drops **below 0.75**, the record is automatically flagged with `requires_human_review = True`. This triggers the Human-in-the-Loop workflow, quarantining ambiguous or messy notes for HR review rather than passing them directly into matching calculations.
+
+### 🌐 Multilingual Resilience & Automated Translation
+To prevent NLP extraction failure on non-English manager notes (e.g., Dutch, German, Spanish, French), the pipeline integrates **deep-translator**:
+*   **Auto-Detection & Normalization**: Transparently detects the source language and translates unstructured notes into English before running spaCy analysis.
+*   **Robust Fallback Handling**: If translation APIs are unreachable or fail, the system implements a graceful `try-except` fallback, passing the raw notes to spaCy to ensure pipeline execution stability.
 
 ---
 
@@ -77,6 +95,7 @@ This microservice is containerized for consistent deployment:
 
 ## 🛠️ Technology Stack
 *   **NLP**: spaCy (PhraseMatcher, Dependency Parsing)
+*   **Translation**: deep-translator (Automated translation engine with robust failback)
 *   **Backend**: Python 3.10+ & FastAPI
 *   **Data Models**: Pydantic (Strict Schema Enforcement)
 *   **Quality**: Pytest (100% Logic Coverage)

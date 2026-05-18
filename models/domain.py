@@ -3,6 +3,7 @@ Domain models for the Intelligent Talent Engine.
 These Pydantic models enforce strict Object-Oriented validation and type safety
 instead of relying on arbitrary dictionary lookups.
 """
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 
@@ -39,6 +40,7 @@ class EmployeeInternal(BaseModel):
     formal_ksab_scores: Dict[str, int]
     manager_unstructured_notes: Optional[str] = None
     enhanced_ksab_scores: Optional[Dict[str, int]] = None
+    requires_human_review: bool = Field(default=False, description="Flagged for manual review if NLP parsing confidence is low")
 
 class SkillUpdateRequest(BaseModel):
     """Validates the exact formatting of a KSAB tag."""

@@ -28,11 +28,14 @@ def display_evaluation(employee_id: str, target_job_id: str, title: str):
     print_separator()
     
     type_text("1. Running ETL Pipeline to sanitize data and extract hidden skills...")
-    cleaned_profiles = get_cleaned_employees()
     
-    # Case-insensitive lookup
-    employee = next((p for p in cleaned_profiles if p.employee_id.upper() == employee_id.upper()), None)
+    raw_employee = next((e for e in DB_EMPLOYEES if e.employee_id.upper() == employee_id.upper()), None)
     target_job = next((j for j in DB_JOBS if j.job_id.upper() == target_job_id.upper()), None)
+    
+    if raw_employee:
+        employee = ETLSanitizerService.process_employee(raw_employee.model_copy(deep=True))
+    else:
+        employee = None
     
     if not employee:
         print(f"\n[ERROR]: Employee ID '{employee_id}' not found.")
@@ -104,8 +107,11 @@ def display_best_match(employee_id: str):
     print_separator()
     
     type_text("1. Running ETL Pipeline to sanitize data and extract hidden skills...")
-    cleaned_profiles = get_cleaned_employees()
-    employee = next((p for p in cleaned_profiles if p.employee_id.upper() == employee_id.upper()), None)
+    raw_employee = next((e for e in DB_EMPLOYEES if e.employee_id.upper() == employee_id.upper()), None)
+    if raw_employee:
+        employee = ETLSanitizerService.process_employee(raw_employee.model_copy(deep=True))
+    else:
+        employee = None
     
     if not employee:
         print(f"\n[ERROR]: Employee ID '{employee_id}' not found.")

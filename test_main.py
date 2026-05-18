@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 import pytest
+# pyrefly: ignore [missing-import]
 from fastapi.testclient import TestClient
 from main import app, DB_EMPLOYEES, DB_JOBS
 from services.matching import MatchingEngineService
@@ -72,7 +74,7 @@ def test_etl_logic_neutral_mention():
     """Verify that a neutral mention takes the base level from the knowledge map."""
     notes = "John works with python."
     formal_scores = {}
-    enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
     # Python is S-001, base proficiency is 3
     assert enhanced.get("S-001") == 3
 
@@ -80,7 +82,7 @@ def test_etl_logic_negation_downgrade():
     """Verify that 'lacks' or 'no' triggers a downgrade to Level 1."""
     notes = "The candidate lacks teamwork skills."
     formal_scores = {"B-002": 5} # Start high
-    enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
     # Teamwork is B-002, should be downgraded to 1
     assert enhanced.get("B-002") == 1
 
@@ -88,7 +90,7 @@ def test_etl_logic_intensifier_boost():
     """Verify that 'excellent' or 'expert' triggers a boost to Level 5."""
     notes = "Showed an excellent grasp of python."
     formal_scores = {}
-    enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
     # Python is S-001, base is 3, but 'excellent' boosts to 5
     assert enhanced.get("S-001") == 5
 
@@ -96,14 +98,14 @@ def test_etl_logic_deep_dependency_negation():
     """Verify that negation is caught even if slightly separated (spaCy dependency tree)."""
     notes = "Leadership is something they do not possess."
     formal_scores = {}
-    enhanced = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
     # Leadership is B-001, 'not possess' should downgrade to 1
     assert enhanced.get("B-001") == 1
 
 def test_etl_logic_empty_input():
     scores = {"K-001": 3}
-    assert ETLSanitizerService.extract_hidden_ksabs("", scores) == scores
-    assert ETLSanitizerService.extract_hidden_ksabs(None, scores) == scores
+    assert ETLSanitizerService.extract_hidden_ksabs("", scores) == (scores, False)
+    assert ETLSanitizerService.extract_hidden_ksabs(None, scores) == (scores, False)
 
 def test_etl_process_employee_anonymization():
     """Verify GDPR anonymization during ETL."""
@@ -195,8 +197,8 @@ def test_sanitize_data_error_handling(monkeypatch):
     
     payload = [{"employee_id": "E-TEST", "formal_ksab_scores": {}}]
     response = client.post("/api/etl/sanitize", json=payload, headers={"X-User-Role": "manager"})
-    assert response.status_code == 400
-    assert "ETL Failure" in response.json()["detail"]
+    assert response.status_code == 422
+    assert "ETL Failure" in response.json()["reason"]
 
 def test_get_recommendations_no_suitable_job(monkeypatch):
     import main
