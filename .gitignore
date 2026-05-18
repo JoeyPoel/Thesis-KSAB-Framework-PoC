@@ -50,3 +50,9 @@ coverage.xml
 # OS
 .DS_Store
 Thumbs.db
+
+# Project Logs
+logs/
+
+# Diagram exports for PDF (Thesis)
+*.html
