@@ -7,7 +7,7 @@ from models.domain import EmployeeInternal, Job, Course, CareerRecommendationRes
 
 class MatchingEngineService:
     @staticmethod
-    def calculate_match_percentage(employee_scores: Dict[str, int], required_ksabs: Dict[str, int]) -> float:
+    def calculate_match_percentage(employee_scores: Dict[str, float], required_ksabs: Dict[str, float]) -> float:
         """Calculates match % using overqualification capping to prevent masking behavioral gaps."""
         if not required_ksabs:
             return 100.0
@@ -22,7 +22,7 @@ class MatchingEngineService:
         return (earned_points / total_required_points) * 100.0
 
     @staticmethod
-    def calculate_skill_gaps(employee_scores: Dict[str, int], required_ksabs: Dict[str, int]) -> Dict[str, int]:
+    def calculate_skill_gaps(employee_scores: Dict[str, float], required_ksabs: Dict[str, float]) -> Dict[str, float]:
         """Calculates exact scalar gaps between current proficiency and target proficiency."""
         gaps = {}
         for ksab_id, req_level in required_ksabs.items():

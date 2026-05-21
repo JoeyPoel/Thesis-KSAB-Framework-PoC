@@ -121,6 +121,68 @@ def test_etl_process_employee_anonymization():
     assert processed.email is None
     assert processed.enhanced_ksab_scores["S-001"] == 5
 
+def test_etl_logic_implicit_negation_trap():
+    """Verify that implicit negation traps like 'far from' are detected, negated, and flagged."""
+    notes = "They are far from expertly managing teamwork."
+    formal_scores = {}
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # teamwork is B-002, should be downgraded to 1 due to implicit negation, and flagged for human review
+    assert enhanced.get("B-002") == 1
+    assert requires_review is True
+
+def test_etl_logic_misaligned_intensifier():
+    """Verify that misaligned intensifiers (like intensifier neutralized by potential/concessives) are flagged."""
+    notes = "They have the potential to expertly use python."
+    formal_scores = {}
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # Python is S-001. Since 'potential' is a neutralizing context, it should trigger low confidence / human review
+    assert requires_review is True
+
+def test_etl_logic_semantic_paradox():
+    """Verify that double negatives/semantic paradoxes don't downgrade the skill and are flagged for review."""
+    notes = "They rarely fail to show natural leadership."
+    formal_scores = {}
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # Leadership is B-001. 'rarely fail to' is positive, so it should not be downgraded (remains >= base default 5), but flags for review
+    assert enhanced.get("B-001") is not None
+    assert enhanced.get("B-001") != 1
+    assert requires_review is True
+
+def test_etl_logic_negated_intensifier_partial_downgrade():
+    """Verify that a negated intensifier (e.g. 'not expertly') triggers a partial downgrade to 2.5 and flags for review."""
+    notes = "They manage teamwork but not expertly."
+    formal_scores = {}
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # teamwork is B-002, should be downgraded to 2.5 because of 'not expertly'
+    assert enhanced.get("B-002") == 2.5
+    assert requires_review is True
+
+def test_etl_logic_decent_not_expert():
+    """Verify that a phrase containing 'decent' but 'not expert' triggers a 2.5 score and flags for review."""
+    notes = "Their teamwork is decent but they are not an expert."
+    formal_scores = {}
+    enhanced, requires_review = ETLSanitizerService.extract_hidden_ksabs(notes, formal_scores)
+    # teamwork is B-002, should be downgraded to 2.5
+    assert enhanced.get("B-002") == 2.5
+    assert requires_review is True
+
+def test_etl_logic_negated_intensifier_gap_and_course():
+    """Verify that a 2.5 proficiency creates a gap against required level 4 and recommends a course."""
+    employee_scores = {"B-002": 2.5}
+    required_ksabs = {"B-002": 4.0}
+    
+    match_pct = MatchingEngineService.calculate_match_percentage(employee_scores, required_ksabs)
+    # 2.5 / 4.0 = 62.5%
+    assert match_pct == 62.5
+    
+    gaps = MatchingEngineService.calculate_skill_gaps(employee_scores, required_ksabs)
+    assert gaps == {"B-002": 1.5}
+    
+    # Empathy Workshop (C-004) targets B-002
+    course_catalogue = [Course(course_id="C-004", title="Empathy Workshop", type="Classroom", target_ksab_ids=["B-002"])]
+    recommendations = MatchingEngineService.recommend_courses(list(gaps.keys()), course_catalogue)
+    assert "C-004" in recommendations
+
 # -----------------------------------------
 # API Endpoints Tests
 # -----------------------------------------

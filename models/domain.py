@@ -11,7 +11,7 @@ class Job(BaseModel):
     job_id: str
     title: str
     department: str
-    required_ksabs: Dict[str, int]
+    required_ksabs: Dict[str, float]
 
 class Course(BaseModel):
     course_id: str
@@ -37,9 +37,9 @@ class EmployeeInternal(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     current_role_id: Optional[str] = None
-    formal_ksab_scores: Dict[str, int]
+    formal_ksab_scores: Dict[str, float]
     manager_unstructured_notes: Optional[str] = None
-    enhanced_ksab_scores: Optional[Dict[str, int]] = None
+    enhanced_ksab_scores: Optional[Dict[str, float]] = None
     requires_human_review: bool = Field(default=False, description="Flagged for manual review if NLP parsing confidence is low")
 
 class SkillUpdateRequest(BaseModel):
@@ -55,5 +55,5 @@ class CareerRecommendationResponse(BaseModel):
     employee_id: str
     target_job_id: str
     match_percentage: float
-    missing_ksabs_gaps: Dict[str, int]
+    missing_ksabs_gaps: Dict[str, float]
     recommended_courses: List[str]

@@ -13,7 +13,7 @@ logger.add("logs/nlp_engine.log", rotation="500 MB", level="INFO")
 
 class ETLSanitizerService:
     @staticmethod
-    def extract_hidden_ksabs(text: str, current_scores: dict[str, int]) -> tuple[dict[str, int], bool]:
+    def extract_hidden_ksabs(text: str, current_scores: dict[str, float]) -> tuple[dict[str, float], bool]:
         """
         Uses spaCy's PhraseMatcher and linguistic dependency parsing to extract and 
         grade competency mentions from unstructured manager notes.
@@ -74,6 +74,40 @@ class ETLSanitizerService:
                             is_negated = True
                             break
             
+            # Advanced Linguistic Traps Detection
+            sentence_text = span.sent.text.lower()
+            context_text = doc[max(0, start-6):start].text.lower()
+            
+            # 1. IMPLICIT NEGATION TRAPS
+            implicit_negation_phrases = ["far from", "anything but", "failed to", "has yet to", "short of", "unable to", "struggles to"]
+            has_implicit_negation = any(phrase in context_text or (phrase in sentence_text and abs(sentence_text.find(phrase) - sentence_text.find(key)) < 30) for phrase in implicit_negation_phrases)
+            
+            # 2. MISALIGNED INTENSIFIERS
+            has_misaligned_intensifier = False
+            extended_intensifiers = intensifier_words.union({"expertly", "perfectly", "flawlessly", "brilliant", "exceptionally"})
+            if is_intensified or any(token.text.lower() in extended_intensifiers for token in span.sent):
+                neutralizing_indicators = {"although", "though", "but", "however", "potential", "capacity", "expected", "supposed", "should", "yet", "could", "room"}
+                has_misaligned_intensifier = any(word in sentence_text.split() for word in neutralizing_indicators) or any(phrase in sentence_text for phrase in ["potential to", "capacity to", "room to", "needs to"])
+            
+            # 3. ADVANCED QUANTIFIERS & SEMANTIC PARADOXES
+            double_negatives = ["rarely fails", "rarely fail", "never failed", "never fails", "not without", "hardly lacks", "seldom fails"]
+            has_semantic_paradox = any(phrase in sentence_text for phrase in double_negatives)
+            
+            # 4. DECENT BUT NOT EXPERT DETECTOR
+            decent_words = {"decent", "decently", "adequate", "adequately", "okay", "ok", "average", "moderate", "satisfactory"}
+            not_expert_phrases = ["not expert", "not an expert", "not expertly", "not master", "not a master", "not highly"]
+            has_decent_word = any(w in sentence_text.split() for w in decent_words) or any(w in key.split() for w in decent_words)
+            has_not_expert = any(p in sentence_text for p in not_expert_phrases)
+            has_decent_not_expert = has_decent_word and has_not_expert
+            
+            # Apply Trap Resolutions to Negation
+            if has_implicit_negation:
+                is_negated = True
+            
+            if has_semantic_paradox:
+                # Double negatives cancel out to imply the presence of the skill
+                is_negated = False
+            
             # Calculate validation score based on multi-layered linguistic complexity
             validation_score = 1.0
             
@@ -92,15 +126,56 @@ class ETLSanitizerService:
             elif sentence_length > 20:
                 validation_score -= 0.15
                 
+            # 4. Implicit Negation Penalty
+            if has_implicit_negation:
+                validation_score -= 0.4
+                
+            # 5. Misaligned Intensifier Penalty
+            if has_misaligned_intensifier:
+                validation_score -= 0.4
+                
+            # 6. Semantic Paradox Penalty
+            if has_semantic_paradox:
+                validation_score -= 0.5
+                
+            # 7. Decent But Not Expert Penalty
+            if has_decent_not_expert:
+                validation_score -= 0.4
+                
             if validation_score < 0.75:
-                logger.warning(f"LOW CONFIDENCE DETECTED: Validation score {validation_score} for {ksab_id} ('{key}'). Flagging for human review.")
+                logger.warning(
+                    f"LOW CONFIDENCE DETECTED: Validation score {validation_score:.2f} for {ksab_id} ('{key}'). "
+                    f"Traps detected - Implicit Negation: {has_implicit_negation}, "
+                    f"Misaligned Intensifier: {has_misaligned_intensifier}, "
+                    f"Semantic Paradox: {has_semantic_paradox}, "
+                    f"Decent But Not Expert: {has_decent_not_expert}. Flagging for human review."
+                )
                 requires_human_review = True
             
             # Granular Grading Logic:
-            if is_negated:
-                # Critical Downgrade: Evidence of missing or negative competency
-                logger.warning(f"NEGATION DETECTED: Downgrading {ksab_id} ('{key}') to Level 1 based on context in sentence: '{span.sent.text.strip()}'")
-                updated_scores[ksab_id] = 1 
+            if has_decent_not_expert:
+                logger.warning(
+                    f"DECENT BUT NOT EXPERT DETECTED: Downgrading {ksab_id} ('{key}') to Level 2.5 (partial downgrade) "
+                    f"based on context in sentence: '{span.sent.text.strip()}'"
+                )
+                updated_scores[ksab_id] = 2.5
+                requires_human_review = True
+            elif is_negated:
+                # Check for negated intensifier (e.g. "not expertly")
+                extended_intensifiers = intensifier_words.union({"expertly", "perfectly", "flawlessly", "brilliant", "exceptionally"})
+                has_intensifier_in_sentence = any(token.text.lower() in extended_intensifiers for token in span.sent)
+                
+                if not has_implicit_negation and (is_intensified or has_intensifier_in_sentence or has_misaligned_intensifier):
+                    logger.warning(
+                        f"NEGATED INTENSIFIER DETECTED: Downgrading {ksab_id} ('{key}') to Level 2.5 (partial downgrade) "
+                        f"based on context in sentence: '{span.sent.text.strip()}'"
+                    )
+                    updated_scores[ksab_id] = 2.5
+                    requires_human_review = True
+                else:
+                    # Critical Downgrade: Evidence of missing or negative competency
+                    logger.warning(f"NEGATION DETECTED: Downgrading {ksab_id} ('{key}') to Level 1 based on context in sentence: '{span.sent.text.strip()}'")
+                    updated_scores[ksab_id] = 1 
             elif is_intensified:
                 # Expert Boost: Evidence of high proficiency (cap at Level 5)
                 logger.info(f"INTENSIFIER DETECTED: Boosting {ksab_id} ('{key}') to Level 5 based on context.")
